@@ -1,0 +1,38 @@
+import { TextArea } from './shape-common';
+export interface ShapeResult {
+    dom: SVGElement;
+    textArea?: TextArea;
+    hasFill?: boolean;
+}
+export declare function createCustomGeom(shapeNode: any): ShapeResult;
+export declare function createTriangle(shapeNode: any): ShapeResult;
+export declare function createRtTriangle(shapeNode: any): ShapeResult;
+export declare function createEllipse(shapeNode: any): ShapeResult;
+export declare function createParallelogram(shapeNode: any): ShapeResult;
+export declare function createTrapezoid(shapeNode: any): ShapeResult;
+export declare function createDiamond(shapeNode: any): ShapeResult;
+export declare function createPentagon(shapeNode: any): ShapeResult;
+export declare function createHexagon(shapeNode: any): ShapeResult;
+export declare function createHeptagon(shapeNode: any): ShapeResult;
+export declare function createOctagon(shapeNode: any): ShapeResult;
+export declare function createDecagon(shapeNode: any): ShapeResult;
+export declare function createDodecagon(shapeNode: any): ShapeResult;
+export declare function createPie(shapeNode: any): ShapeResult;
+export declare function createArc(shapeNode: any): ShapeResult;
+export declare function createChord(shapeNode: any): ShapeResult;
+export declare function createTeardrop(shapeNode: any): ShapeResult;
+export declare function createBracketPair(shapeNode: any): ShapeResult;
+export declare function createBracePair(shapeNode: any): ShapeResult;
+export declare function createFrame(shapeNode: any): ShapeResult;
+export declare function createHalfFrame(shapeNode: any): ShapeResult;
+export declare function createCorner(shapeNode: any): ShapeResult;
+export declare function createDiagStripe(shapeNode: any): ShapeResult;
+export declare function createPlus(shapeNode: any): ShapeResult;
+export declare function createPlaque(shapeNode: any): ShapeResult;
+export declare function createCan(shapeNode: any): ShapeResult;
+export declare function createCube(shapeNode: any): ShapeResult;
+export declare function createBevel(shapeNode: any): ShapeResult;
+export declare function createDonut(shapeNode: any): ShapeResult;
+export declare function createNoSmoking(shapeNode: any): ShapeResult;
+export declare function createBlockArc(shapeNode: any): ShapeResult;
+export declare function createFoldedCorner(shapeNode: any): ShapeResult;

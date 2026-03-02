@@ -62,14 +62,22 @@ export default class HtmlRender {
     slideWrapper.style.margin = '0 auto 10px';
     slideWrapper.style.setProperty('background', '#fff');
     slideWrapper.style.setProperty('overflow', 'hidden');
+    const slideNumber = index + 1;
     this._renderBackground(slide, slideWrapper);
-    this._renderSlideMaster(slide.slideMaster, slideWrapper);
-    this._renderSlideLayout(slide.slideLayout, slideWrapper);
-    this._renderSlide(slide, slideWrapper);
+    // Build sets of placeholder keys so each layer skips placeholders overridden by layers above it
+    const slidePlaceholders = this._collectPlaceholderKeys(slide.nodes);
+    const layoutPlaceholders = this._collectPlaceholderKeys(slide.slideLayout.nodes);
+    // Master skips placeholders present in layout OR slide
+    const masterOverrides = new Set([...layoutPlaceholders, ...slidePlaceholders]);
+    // Layout skips placeholders present in slide
+    const layoutOverrides = slidePlaceholders;
+    this._renderSlideMaster(slide.slideMaster, slideWrapper, slideNumber, masterOverrides);
+    this._renderSlideLayout(slide.slideLayout, slideWrapper, slideNumber, layoutOverrides);
+    this._renderSlide(slide, slideWrapper, slideNumber);
     this.wrapper.append(slideWrapper);
   }
 
-  _renderSlideMaster(slideMaster: any, container: HTMLElement): void {
+  _renderSlideMaster(slideMaster: any, container: HTMLElement, slideNumber?: number, overrides?: Set<string>): void {
     const layer = document.createElement('div');
     layer.classList.add('slide-master-wrapper');
     layer.style.setProperty('position', 'absolute');
@@ -79,16 +87,18 @@ export default class HtmlRender {
     layer.style.setProperty('height', this.pptx.height + 'px');
     layer.style.setProperty('transform', `scale(${this.scale})`);
     layer.style.setProperty('transform-origin', '0 0');
-    const nodes = [...slideMaster.nodes].filter((n: any) => n.userDrawn);
+    const nodes = [...slideMaster.nodes].filter((n: any) =>
+      this._shouldRenderMasterNode(n) && !this._isOverridden(n, overrides)
+    );
     nodes.sort((a: any, b: any) => a.order > b.order ? 1 : -1);
     for (const node of nodes) {
-      const el = this._renderNode(node);
+      const el = this._renderNode(node, slideNumber);
       if (el) layer.append(el);
     }
     container.append(layer);
   }
 
-  _renderSlideLayout(slideLayout: any, container: HTMLElement): void {
+  _renderSlideLayout(slideLayout: any, container: HTMLElement, slideNumber?: number, overrides?: Set<string>): void {
     const layer = document.createElement('div');
     layer.classList.add('slide-layout-wrapper');
     layer.style.setProperty('position', 'absolute');
@@ -98,16 +108,18 @@ export default class HtmlRender {
     layer.style.setProperty('height', this.pptx.height + 'px');
     layer.style.setProperty('transform', `scale(${this.scale})`);
     layer.style.setProperty('transform-origin', '0 0');
-    const nodes = [...slideLayout.nodes].filter((n: any) => n.userDrawn);
+    const nodes = [...slideLayout.nodes].filter((n: any) =>
+      this._shouldRenderMasterNode(n) && !this._isOverridden(n, overrides)
+    );
     nodes.sort((a: any, b: any) => a.order > b.order ? 1 : -1);
     for (const node of nodes) {
-      const el = this._renderNode(node);
+      const el = this._renderNode(node, slideNumber);
       if (el) layer.append(el);
     }
     container.append(layer);
   }
 
-  _renderSlide(slide: any, container: HTMLElement): void {
+  _renderSlide(slide: any, container: HTMLElement, slideNumber?: number): void {
     const layer = document.createElement('div');
     layer.classList.add('slide-wrapper');
     layer.style.setProperty('position', 'absolute');
@@ -120,20 +132,50 @@ export default class HtmlRender {
     const nodes = [...slide.nodes];
     nodes.sort((a: any, b: any) => a.order > b.order ? 1 : -1);
     for (const node of nodes) {
-      const el = this._renderNode(node);
+      const el = this._renderNode(node, slideNumber);
       if (el) layer.append(el);
     }
     container.append(layer);
   }
 
-  _renderNode(node: any): HTMLElement | undefined {
+  _renderNode(node: any, slideNumber?: number): HTMLElement | undefined {
     if (node instanceof PicNode) return renderPic(node);
-    if (node instanceof ShapeNode) return renderShape(node);
-    if (node instanceof Group) return renderGroup(node);
+    if (node instanceof ShapeNode) return renderShape(node, slideNumber);
+    if (node instanceof Group) return renderGroup(node, slideNumber);
     if (node instanceof DiagramNode) return renderDiagram(node);
     if (node instanceof TableNode) return renderTable(node);
     if (node instanceof ChartNode) return renderChart(node);
     return undefined;
+  }
+
+  /**
+   * Determines if a node from a slide master or layout should be rendered.
+   * Include: userDrawn shapes, non-placeholder shapes, and informational placeholders (sldNum, ftr, dt).
+   * Exclude: content placeholders (title, body, etc.) that are empty layout templates.
+   */
+  _shouldRenderMasterNode(n: any): boolean {
+    if (n.userDrawn) return true;
+    if (!n.type && !n.idx) return true;
+    const infoTypes = new Set(['sldNum', 'ftr', 'dt']);
+    return infoTypes.has(n.type);
+  }
+
+  /** Collect placeholder keys (type or idx) from a node list. */
+  _collectPlaceholderKeys(nodes: any[]): Set<string> {
+    const keys = new Set<string>();
+    for (const n of nodes) {
+      if (n.type) keys.add('type:' + n.type);
+      else if (n.idx) keys.add('idx:' + n.idx);
+    }
+    return keys;
+  }
+
+  /** Check if a placeholder node is overridden by a higher layer. */
+  _isOverridden(n: any, overrides?: Set<string>): boolean {
+    if (!overrides) return false;
+    if (n.type && overrides.has('type:' + n.type)) return true;
+    if (!n.type && n.idx && overrides.has('idx:' + n.idx)) return true;
+    return false;
   }
 
   _renderBackground(slide: any, container: HTMLElement): void {

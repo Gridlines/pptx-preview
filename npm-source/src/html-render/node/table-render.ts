@@ -14,9 +14,12 @@ export function renderTable(tableNode: TableNode): HTMLDivElement {
   wrapper.style.top = offset.y + 'px';
   wrapper.style.width = extend.w + 'px';
   wrapper.style.height = extend.h + 'px';
+  wrapper.style.overflow = 'hidden';
 
   const table = document.createElement('table');
   table.style.borderCollapse = 'collapse';
+  table.style.tableLayout = 'fixed';
+  table.style.width = '100%';
 
   rows.forEach((tr: any) => {
     const trHeight = tr.props.height;
@@ -32,7 +35,15 @@ export function renderTable(tableNode: TableNode): HTMLDivElement {
       if (tdProps.vMerge || tdProps.hMerge) return;
 
       const tdEl = document.createElement('td');
-      tdEl.style.width = (gridCols[colIndex]?.width || 30) + 'px';
+      // Calculate width: sum of all spanned columns for merged cells
+      let cellWidth = 0;
+      const span = tdProps.gridSpan || 1;
+      for (let ci = colIndex; ci < colIndex + span && ci < gridCols.length; ci++) {
+        cellWidth += gridCols[ci]?.width || 0;
+      }
+      tdEl.style.width = (cellWidth || 30) + 'px';
+      tdEl.style.wordBreak = 'break-word';
+      tdEl.style.overflowWrap = 'break-word';
       if (tdProps.rowSpan) tdEl.setAttribute('rowspan', tdProps.rowSpan + '');
       if (tdProps.gridSpan) tdEl.setAttribute('colspan', tdProps.gridSpan + '');
 
@@ -85,6 +96,7 @@ export function renderTable(tableNode: TableNode): HTMLDivElement {
         const paraEl = _renderParagraph(para, i + 1, {
           isFirst: i === 0,
           isLast: i === paragraphs.length - 1,
+          isTable: true,
         });
         tdEl.appendChild(paraEl);
       }

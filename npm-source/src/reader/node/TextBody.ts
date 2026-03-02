@@ -132,6 +132,12 @@ export default class TextBody {
     let runs = get(source, ['a:r']) || [];
     if (!Array.isArray(runs)) runs = [runs];
 
+    let fields = get(source, ['a:fld']) || [];
+    if (!Array.isArray(fields)) fields = [fields];
+    runs = runs.concat(
+      fields.filter((f: any) => f).map((fld: any) => ({ ...fld, _fieldType: get(fld, ['attrs', 'type']) }))
+    );
+
     let breaks = get(source, ['a:br']) || [];
     if (!Array.isArray(breaks)) breaks = [breaks];
 
@@ -203,6 +209,10 @@ export default class TextBody {
           }
         }
         break;
+    }
+
+    if (get(this.lstStyle, [lvlKey, 'props'])) {
+      Object.assign(result, get(this.lstStyle, [lvlKey, 'props']));
     }
 
     return result;
@@ -310,6 +320,10 @@ export default class TextBody {
       result.buChar = pPr['a:buChar'].attrs.char;
     }
 
+    if (get(pPr, ['a:buNone'])) {
+      result.buNone = true;
+    }
+
     if (get(pPr, ['a:spcBef', 'a:spcPts', 'attrs', 'val'])) {
       result.spaceBefore = parseInt(pPr['a:spcBef']['a:spcPts'].attrs.val) / 100;
     }
@@ -331,6 +345,7 @@ export default class TextBody {
     const rPr = get(run, ['a:rPr']) || {};
     result.props = this._formatRPr(rPr);
     result.text = get(run, 'a:t') || '';
+    if (run._fieldType) result.fieldType = run._fieldType;
     return result;
   }
 

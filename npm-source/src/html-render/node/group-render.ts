@@ -1,10 +1,16 @@
 import Group from '../../reader/Group';
 import PicNode from '../../reader/node/PicNode';
 import ShapeNode from '../../reader/node/ShapeNode';
+import TableNode from '../../reader/node/TableNode';
+import DiagramNode from '../../reader/node/DiagramNode';
+import ChartNode from '../../reader/node/ChartNode';
 import { renderPic } from './pic-render';
 import { renderShape } from './shape-render';
+import { renderTable } from './table-render';
+import { renderDiagram } from './diagram-render';
+import { renderChart } from './chart-render';
 
-export function renderGroup(groupNode: Group): HTMLDivElement {
+export function renderGroup(groupNode: Group, slideNumber?: number): HTMLDivElement {
   const wrapper = document.createElement('div');
   const extend = groupNode.extend;
   const offset = groupNode.offset;
@@ -28,9 +34,15 @@ export function renderGroup(groupNode: Group): HTMLDivElement {
     if (node instanceof PicNode) {
       el = renderPic(node);
     } else if (node instanceof ShapeNode) {
-      el = renderShape(node);
+      el = renderShape(node, slideNumber);
     } else if (node instanceof Group) {
-      el = renderGroup(node);
+      el = renderGroup(node, slideNumber);
+    } else if (node instanceof ChartNode) {
+      el = renderChart(node);
+    } else if (node instanceof TableNode) {
+      el = renderTable(node);
+    } else if (node instanceof DiagramNode) {
+      el = renderDiagram(node);
     }
     if (el) wrapper.appendChild(el);
   }

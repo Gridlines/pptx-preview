@@ -164,7 +164,7 @@ function getStrokeDasharray(border: any): string {
   return (patterns[border.type] || []).map((v: number) => v * border.width).join(',');
 }
 
-export function renderShape(shapeNode: ShapeNode): HTMLDivElement {
+export function renderShape(shapeNode: ShapeNode, slideNumber?: number): HTMLDivElement {
   const ext = shapeNode.extend;
   const offset = shapeNode.offset;
   const border = shapeNode.border;
@@ -506,7 +506,7 @@ export function renderShape(shapeNode: ShapeNode): HTMLDivElement {
 
   // Render text body
   const renderArea = { left: textArea.left, top: textArea.top, right: textArea.right || 0, bottom: textArea.bottom, w: textArea.w, h: textArea.h };
-  const textEl = renderTextBody(shapeNode.textBody, renderArea, shapeNode.isTextBox);
+  const textEl = renderTextBody(shapeNode.textBody, renderArea, shapeNode.isTextBox, slideNumber);
   if (textEl) wrapper.appendChild(textEl);
 
   // Apply rotation

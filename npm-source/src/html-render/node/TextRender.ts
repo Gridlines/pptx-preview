@@ -11,10 +11,14 @@ export interface textArea {
   h: number;
 }
 
-function renderRow(row: any, inheritRProps: any, bodyProps?: any): HTMLSpanElement {
+function renderRow(row: any, inheritRProps: any, bodyProps?: any, slideNumber?: number): HTMLSpanElement {
   const mergedProps = { ...inheritRProps, ...row.props };
   const span = document.createElement('span');
-  span.innerHTML = typeof row.text === 'string' ? row.text : '';
+  let text = typeof row.text === 'string' ? row.text : '';
+  if (row.fieldType === 'slidenum' && slideNumber !== undefined) {
+    text = String(slideNumber);
+  }
+  span.innerHTML = text;
 
   let fontSize = 18;
   if (mergedProps.size) {
@@ -74,7 +78,14 @@ function renderBulletAutoNum(p: HTMLElement, props: any, levelIndex: number) {
   span.style.color = firstChild.style.color;
   span.style.fontWeight = firstChild.style.fontWeight;
   span.style.fontStyle = firstChild.style.fontStyle;
-  span.style.marginRight = '10px';
+  const indent = Math.abs(props.indent || 0);
+  if (indent > 0) {
+    span.style.display = 'inline-block';
+    span.style.width = indent + 'px';
+    span.style.marginLeft = -indent + 'px';
+  } else {
+    span.style.marginRight = '10px';
+  }
 
   switch (props.buAutoNum) {
     case 'arabicPeriod':
@@ -139,17 +150,27 @@ function renderBulletChar(p: HTMLElement, props: any) {
   span.style.color = firstChild.style.color;
   span.style.fontSize = firstChild.style.fontSize;
   const charMap: { [key: string]: string } = {
-    'n': '■', 'l': '●', 'u': '◆', 'p': '□', 'ü': '✔', 'Ø': '➢', '•': '•',
+    'n': '■', 'l': '●', 'u': '◆', 'p': '□', 'ü': '✔', 'Ø': '➢', '•': '•', '§': '■',
   };
   span.textContent = charMap[props.buChar] || '■';
-  span.style.marginRight = '10px';
+  const bulletFontSize = parseFloat(firstChild.style.fontSize) || 10;
+  span.style.fontSize = (bulletFontSize * 0.5) + 'px';
+  span.style.verticalAlign = 'middle';
+  const indent = Math.abs(props.indent || 0);
+  if (indent > 0) {
+    span.style.display = 'inline-block';
+    span.style.width = indent + 'px';
+    span.style.marginLeft = -indent + 'px';
+  } else {
+    span.style.marginRight = '10px';
+  }
   p.prepend(span);
 }
 
 export function _renderParagraph(
   paragraph: any,
   levelIndex: number = 0,
-  options: { isFirst?: boolean; isLast?: boolean; bodyProps?: any } = {}
+  options: { isFirst?: boolean; isLast?: boolean; bodyProps?: any; isTable?: boolean; slideNumber?: number } = {}
 ): HTMLElement {
   const inheritProps = paragraph.inheritProps;
   const inheritRProps = paragraph.inheritRProps;
@@ -163,13 +184,15 @@ export function _renderParagraph(
       if (row.props && row.props.size) maxSize = Math.max(maxSize, row.props.size);
     }
     const fontScale = options?.bodyProps?.normAutofit?.fontScale || 1;
-    return (maxSize || inheritRProps.size || 18) * fontScale;
+    const defaultSize = options.isTable ? (inheritRProps.size || 8) : 18;
+    return (maxSize || inheritRProps.size || defaultSize) * fontScale;
   };
 
   const wrapper = document.createElement('div');
   const spaceBefore = options.isFirst ? 0 : mergedProps.spaceBefore || 0;
   const spaceAfter = options.isLast ? 0 : mergedProps.spaceAfter || 0;
-  wrapper.style.margin = `${Math.floor(0.2 * calcFontSize())}px  0 0 0`;
+  const topMargin = options.isTable ? 0 : Math.floor(0.2 * calcFontSize());
+  wrapper.style.margin = `${topMargin}px  0 0 0`;
   wrapper.style.padding = `${Math.floor(spaceBefore)}px 0px ${Math.floor(spaceAfter)}px 0px`;
 
   const p = document.createElement('p');
@@ -193,15 +216,17 @@ export function _renderParagraph(
       if (row.isBr) {
         p.appendChild(document.createElement('br'));
       } else {
-        p.appendChild(renderRow(row, { ...inheritRProps, marginTop: Math.floor(0.2 * calcFontSize()) }, options.bodyProps));
+        p.appendChild(renderRow(row, { ...inheritRProps, marginTop: Math.floor(0.2 * calcFontSize()) }, options.bodyProps, options.slideNumber));
       }
     }
-    if (mergedProps.buAutoNum) {
-      renderBulletAutoNum(p, mergedProps, levelIndex);
-    } else if (mergedProps.buChar) {
-      renderBulletChar(p, mergedProps);
+    if (!mergedProps.buNone) {
+      if (mergedProps.buAutoNum) {
+        renderBulletAutoNum(p, mergedProps, levelIndex);
+      } else if (mergedProps.buChar) {
+        renderBulletChar(p, mergedProps);
+      }
     }
-    p.style.paddingLeft = (mergedProps.marginLeft || 0) + (mergedProps.indent || 0) + 'px';
+    p.style.paddingLeft = (mergedProps.marginLeft || 0) + 'px';
   } else {
     const emptySpan = document.createElement('span');
     emptySpan.innerHTML = '&nbsp;';
@@ -213,7 +238,7 @@ export function _renderParagraph(
   return wrapper;
 }
 
-export function renderTextBody(textBody: TextBody, textArea: textArea, isTextBox?: boolean): HTMLElement {
+export function renderTextBody(textBody: TextBody, textArea: textArea, isTextBox?: boolean, slideNumber?: number): HTMLElement {
   const bodyProps = { ...textBody.inheritProps, ...textBody.props };
   const textWrapper = document.createElement('div');
 
@@ -259,6 +284,7 @@ export function renderTextBody(textBody: TextBody, textArea: textArea, isTextBox
       isFirst: i === 0,
       isLast: i === paragraphs.length - 1,
       bodyProps,
+      slideNumber,
     });
     textWrapper.appendChild(paraEl);
   }

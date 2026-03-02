@@ -1,7 +1,13 @@
+/// <reference types="vitest" />
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
 
 export default defineConfig({
+  test: {
+    environment: 'jsdom',
+    include: ['test/**/*.test.ts'],
+    globals: true,
+  },
   build: {
     lib: {
       entry: resolve(__dirname, 'src/index.ts'),

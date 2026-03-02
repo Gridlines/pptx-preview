@@ -14,7 +14,11 @@ export function renderChart(chartNode: ChartNode): HTMLDivElement {
 
   if (chartNode.options && chartNode.options.series && chartNode.options.series.length > 0) {
     try {
-      const chart = echarts.init(wrapper);
+      const chart = echarts.init(wrapper, null, {
+        renderer: 'svg',
+        width: extend.w,
+        height: extend.h,
+      });
       chart.setOption(chartNode.options);
     } catch (e) {
       // silently ignore chart render errors
