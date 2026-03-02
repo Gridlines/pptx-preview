@@ -217,9 +217,12 @@ export function _renderParagraph(
   };
 
   const resolveLineHeight = () => {
-    if (props.lineHeight !== undefined) return props.lineHeight;
+    // spcPct values from OOXML are percentages of "single" (normal) line spacing,
+    // which corresponds to ~1.2× font-size in CSS. Multiply by 1.2 to convert.
+    const SINGLE_SPACING_FACTOR = 1.2;
+    if (props.lineHeight !== undefined) return props.lineHeight * SINGLE_SPACING_FACTOR;
     if (props.lineHeightPts !== undefined) return props.lineHeightPts / calcFontSize();
-    if (inheritProps.lineHeight !== undefined) return inheritProps.lineHeight;
+    if (inheritProps.lineHeight !== undefined) return inheritProps.lineHeight * SINGLE_SPACING_FACTOR;
     if (inheritProps.lineHeightPts !== undefined) return inheritProps.lineHeightPts / calcFontSize();
     return 1;
   };

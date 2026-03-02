@@ -45,6 +45,16 @@ export function parseRenderedSlideDocument(
       const shape = parseRenderedShape(wrapper, layerRoot, ctx);
       if (shape) shapes.push(shape);
     }
+
+    // Table / image wrappers rendered by table-render and pic-render don't carry
+    // the `.shape-wrapper` class.  Find absolutely-positioned <div> elements that
+    // contain a <table> or <img> and weren't already collected above.
+    const wrapperSet = new Set<HTMLElement>(wrappers);
+    const extras = findUntaggedShapeWrappers(layerRoot, wrapperSet);
+    for (const wrapper of extras) {
+      const shape = parseRenderedShape(wrapper, layerRoot, ctx);
+      if (shape) shapes.push(shape);
+    }
   }
 
   if (shapes.length === 0) return null;
@@ -61,11 +71,14 @@ export function parseRenderedSlideDocument(
 }
 
 function looksLikeRenderedPreview(doc: Document): boolean {
-  return !!(
-    doc.querySelector('.pptx-preview-slide-wrapper .shape-wrapper') ||
-    (doc.querySelector('.slide-wrapper .shape-wrapper') &&
-      doc.querySelector('.shape-wrapper svg'))
-  );
+  if (doc.querySelector('.pptx-preview-slide-wrapper .shape-wrapper')) return true;
+  if (
+    doc.querySelector('.slide-wrapper .shape-wrapper') &&
+    doc.querySelector('.shape-wrapper svg')
+  ) return true;
+  // Tables / images rendered without .shape-wrapper
+  if (doc.querySelector('.pptx-preview-slide-wrapper table')) return true;
+  return false;
 }
 
 function getLayerRoots(doc: Document, slideWrapper: HTMLElement | null): HTMLElement[] {
@@ -88,6 +101,37 @@ function getLayerRoots(doc: Document, slideWrapper: HTMLElement | null): HTMLEle
   if (directSlide) return [directSlide];
 
   return [];
+}
+
+/**
+ * Find absolutely-positioned <div> wrappers that contain a <table> or <img>
+ * but were NOT already collected as .shape-wrapper elements.
+ *
+ * table-render and pic-render don't add the .shape-wrapper class, so this
+ * picks them up by structure: an absolutely-positioned direct-child div
+ * whose first meaningful child is a <table> or <img>.
+ */
+function findUntaggedShapeWrappers(
+  layerRoot: HTMLElement,
+  alreadyCollected: Set<HTMLElement>
+): HTMLElement[] {
+  const results: HTMLElement[] = [];
+  const children = Array.from(layerRoot.children) as HTMLElement[];
+  for (const child of children) {
+    if (alreadyCollected.has(child)) continue;
+    if (child.tagName !== 'DIV') continue;
+    if (child.style.getPropertyValue('position') !== 'absolute') continue;
+    // Must contain a table or an img to be treated as a shape wrapper
+    if (!child.querySelector('table') && !child.querySelector('img')) continue;
+    // Skip layer sub-wrappers (master/layout/slide wrappers)
+    if (
+      child.classList.contains('slide-master-wrapper') ||
+      child.classList.contains('slide-layout-wrapper') ||
+      child.classList.contains('slide-wrapper')
+    ) continue;
+    results.push(child);
+  }
+  return results;
 }
 
 function inferSourceSize(layerRoots: HTMLElement[]): Size | undefined {

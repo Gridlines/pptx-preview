@@ -41,6 +41,7 @@ describe('Static Chart Rendering', () => {
     );
     const retransBarPath = firstPathByFill(retransChart, 'rgb\\(21,54,92\\)');
     expect(retransBarPath).toMatch(/l0 -[0-9.]+l-/);
+    expect(/fill=\"(rgb\(201,201,201\)|rgba\(201,201,201,1\)|#C9C9C9)\"/.test(retransChart)).toBe(true);
 
     const industryAdChart = extractChartSvgSection(
       html,

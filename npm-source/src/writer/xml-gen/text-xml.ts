@@ -7,13 +7,13 @@ export function generateTxBodyXml(
   paragraphs: ParagraphType[],
   bodyProps?: Record<string, string>
 ): string {
-  const defaultBodyProps: Record<string, string> = {
-    wrap: 'square',
-    rtlCol: '0',
-    ...bodyProps,
-  };
+  // When bodyProps is explicitly provided (even empty {}), use it as-is.
+  // Only apply defaults (wrap/rtlCol) when bodyProps is omitted (undefined).
+  const resolvedProps: Record<string, string> = bodyProps !== undefined
+    ? bodyProps
+    : { wrap: 'square', rtlCol: '0' };
 
-  const bodyPr = tag('a:bodyPr', defaultBodyProps);
+  const bodyPr = tag('a:bodyPr', Object.keys(resolvedProps).length > 0 ? resolvedProps : undefined);
   const lstStyle = tag('a:lstStyle');
 
   const pElements = paragraphs.map((p) => generateParagraphXml(p)).join('');

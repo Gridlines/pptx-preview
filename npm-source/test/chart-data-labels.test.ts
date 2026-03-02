@@ -25,6 +25,10 @@ describe('Chart Data Labels Parsing', () => {
     const retransChart = charts.find((c: any) => c.offset?.x === 403 && c.offset?.y === 462);
     expect(retransChart).toBeTruthy();
     expect(retransChart.options.series[0].label?.show).toBe(true);
+    expect(retransChart.options.yAxis?.min).toBe(0);
+    expect(retransChart.options.yAxis?.max).toBe(17);
+    expect(retransChart.options.yAxis?.show).toBe(false);
+    expect(String(retransChart.options.color[2])).toMatch(/201,201,201|C9C9C9/i);
 
     const comboChart = charts.find((c: any) => c.extend?.w === 357 && c.extend?.h === 121 && c.offset?.x === 0 && c.offset?.y === 0);
     expect(comboChart).toBeTruthy();

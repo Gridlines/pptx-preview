@@ -25,9 +25,8 @@ export function generateTableShapeXml(shape: ShapeDefinition, shapeId: number): 
       .join('')
   );
 
-  const tblPr = tag('a:tblPr', { firstRow: '1', bandRow: '1' },
-    tag('a:noFill')
-  );
+  // Match the original: plain <a:tblPr/> without banding/style attributes
+  const tblPr = tag('a:tblPr');
 
   const rows = shape.tableRows.map((tr) => generateTableRowXml(tr)).join('');
 
@@ -51,46 +50,61 @@ function generateTableCellXml(td: TableTdType): string {
     ? td.paragraphs
     : [{ props: {}, rows: [{ text: '', props: {} }] }];
 
-  const txBody = tag('a:txBody', undefined, generateTxBodyXml(paragraphs));
+  // Table cells use plain <a:bodyPr/> without wrap/rtlCol attributes
+  const txBody = tag('a:txBody', undefined, generateTxBodyXml(paragraphs, {}));
 
+  // OOXML schema order for <a:tcPr> children:
+  //   1. lnL, lnR, lnT, lnB  (border lines — always emit all four)
+  //   2. fill (solidFill / noFill)
   let tcPrChildren = '';
-  if (td.props.background && td.props.background.type === 'solidFill') {
-    tcPrChildren += tag('a:solidFill', undefined, generateColorXml(td.props.background));
-  }
 
-  const borderMap: Record<string, string> = {
-    left: 'a:lnL',
-    right: 'a:lnR',
-    top: 'a:lnT',
-    bottom: 'a:lnB',
-  };
+  // --- Borders (always emit all 4 in order: L, R, T, B) ---
+  const borderSides: Array<{ key: string; xmlTag: string }> = [
+    { key: 'left', xmlTag: 'a:lnL' },
+    { key: 'right', xmlTag: 'a:lnR' },
+    { key: 'top', xmlTag: 'a:lnT' },
+    { key: 'bottom', xmlTag: 'a:lnB' },
+  ];
 
-  if (td.props.border) {
-    for (const [side, xmlTag] of Object.entries(borderMap)) {
-      const border = (td.props.border as any)[side];
-      if (border) {
-        const width = border.width ? Math.round(border.width * 12700) : 12700;
-        let lineContent = '';
-        if (border.color && border.color.type === 'solidFill') {
-          lineContent += tag('a:solidFill', undefined, generateColorXml(border.color));
-        }
-        tcPrChildren += tag(xmlTag, { w: String(width), cap: 'flat', cmpd: 'sng', algn: 'ctr' }, lineContent || undefined);
+  for (const { key, xmlTag } of borderSides) {
+    const border = td.props.border ? (td.props.border as any)[key] : undefined;
+    if (border && border.width > 0) {
+      const width = Math.round(border.width * 12700);
+      let lineContent = '';
+      if (border.color && border.color.type === 'solidFill') {
+        lineContent += tag('a:solidFill', undefined, generateColorXml(border.color));
       }
+      lineContent += tag('a:prstDash', { val: 'solid' });
+      tcPrChildren += tag(xmlTag, { w: String(width), cap: 'flat', cmpd: 'sng', algn: 'ctr' }, lineContent);
+    } else {
+      // No border on this side → emit <a:lnX><a:noFill/></a:lnX>
+      tcPrChildren += tag(xmlTag, undefined, tag('a:noFill'));
     }
   }
 
-  const tcPrAttrs: Record<string, string | undefined> = {};
-  if (td.props.marL !== undefined) tcPrAttrs.marL = String(px2emu(td.props.marL));
-  if (td.props.marR !== undefined) tcPrAttrs.marR = String(px2emu(td.props.marR));
-  if (td.props.marT !== undefined) tcPrAttrs.marT = String(px2emu(td.props.marT));
-  if (td.props.marB !== undefined) tcPrAttrs.marB = String(px2emu(td.props.marB));
+  // --- Fill (AFTER borders per schema) ---
+  if (td.props.background && td.props.background.type === 'solidFill') {
+    tcPrChildren += tag('a:solidFill', undefined, generateColorXml(td.props.background));
+  } else {
+    tcPrChildren += tag('a:noFill');
+  }
+
+  const tcPrAttrs: Record<string, string | undefined> = {
+    marL: String(td.props.marL !== undefined ? px2emu(td.props.marL) : 0),
+    marR: String(td.props.marR !== undefined ? px2emu(td.props.marR) : 0),
+    marT: String(td.props.marT !== undefined ? px2emu(td.props.marT) : 0),
+    marB: String(td.props.marB !== undefined ? px2emu(td.props.marB) : 0),
+  };
   if (td.props.anchor) tcPrAttrs.anchor = td.props.anchor;
-  if (td.props.gridSpan && td.props.gridSpan > 1) tcPrAttrs.gridSpan = String(td.props.gridSpan);
-  if (td.props.rowSpan && td.props.rowSpan > 1) tcPrAttrs.rowSpan = String(td.props.rowSpan);
-  if (td.props.vMerge) tcPrAttrs.vMerge = '1';
-  if (td.props.hMerge) tcPrAttrs.hMerge = '1';
 
-  const tcPr = tag('a:tcPr', tcPrAttrs, tcPrChildren || undefined);
+  const tcPr = tag('a:tcPr', tcPrAttrs, tcPrChildren);
 
-  return tag('a:tc', undefined, txBody + tcPr);
+  // gridSpan, rowSpan, vMerge, hMerge are attributes of <a:tc>
+  const tcAttrs: Record<string, string | undefined> = {};
+  if (td.props.gridSpan && td.props.gridSpan > 1) tcAttrs.gridSpan = String(td.props.gridSpan);
+  if (td.props.rowSpan && td.props.rowSpan > 1) tcAttrs.rowSpan = String(td.props.rowSpan);
+  if (td.props.vMerge) tcAttrs.vMerge = '1';
+  if (td.props.hMerge) tcAttrs.hMerge = '1';
+
+  return tag('a:tc', tcAttrs, txBody + tcPr);
 }

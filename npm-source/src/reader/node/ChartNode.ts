@@ -17,6 +17,8 @@ export default class ChartNode extends Node {
   chartColorMap?: Record<string, string>;
   chartStyleId?: number;
   plotAreaValueAxisIds: Set<string>;
+  plotAreaLayout?: { x: number; y: number; w: number; h: number };
+  legendLayout?: { x: number; y: number; w: number; h: number };
 
   get slideMaster(): any {
     return this.ctx.slideMaster || this.ctx;
@@ -66,6 +68,15 @@ export default class ChartNode extends Node {
       const chart = get(chartSpace, ['c:chart']);
       const plotArea = get(chart, ['c:plotArea']);
       this.plotAreaValueAxisIds = new Set(this.getValueAxisIds(plotArea));
+
+      // Parse manual layout for plot area positioning
+      this.plotAreaLayout = this.parseManualLayout(get(plotArea, ['c:layout', 'c:manualLayout']));
+
+      // Parse manual layout for legend positioning
+      const legend = get(chart, ['c:legend']);
+      if (legend) {
+        this.legendLayout = this.parseManualLayout(get(legend, ['c:layout', 'c:manualLayout']));
+      }
 
       // Parse the primary chart type (bar takes priority for combo charts)
       if (get(plotArea, ['c:barChart'])) {
@@ -328,17 +339,21 @@ export default class ChartNode extends Node {
   }
 
   private parseBarColors(series: any[]): string[] {
-    return series.map((ser) =>
-      this.getSeriesColor(get(ser, ['c:spPr', 'a:solidFill']))
-    );
+    return series.map((ser) => {
+      // Explicit noFill on the bar shape means transparent
+      if (get(ser, ['c:spPr', 'a:noFill']) !== undefined) return 'transparent';
+      return this.getSeriesColor(get(ser, ['c:spPr', 'a:solidFill']));
+    });
   }
 
   private parseLineColors(series: any[]): string[] {
-    return series.map((ser) =>
-      this.getSeriesColor(
+    return series.map((ser) => {
+      // Explicit noFill on the line stroke means transparent
+      if (get(ser, ['c:spPr', 'a:ln', 'a:noFill']) !== undefined) return 'transparent';
+      return this.getSeriesColor(
         get(ser, ['c:spPr', 'a:ln', 'a:solidFill']) || get(ser, ['c:spPr', 'a:solidFill'])
-      )
-    );
+      );
+    });
   }
 
   private parseSeriesIndexes(series: any[]): number[] {
@@ -348,7 +363,7 @@ export default class ChartNode extends Node {
     });
   }
 
-  private getDefaultSeriesColorByIndex(seriesIndex: number): string {
+  private getDefaultSeriesColorByIndex(seriesIndex: number, seriesType: 'bar' | 'line'): string {
     const palette = [
       this.theme.getColor('accent1'),
       this.theme.getColor('accent2'),
@@ -360,7 +375,21 @@ export default class ChartNode extends Node {
 
     if (palette.length === 0) return '#6E7079';
     const normalizedIndex = ((seriesIndex % palette.length) + palette.length) % palette.length;
-    return palette[normalizedIndex];
+    const baseColor = palette[normalizedIndex];
+
+    // Office chart style 102 often uses a lighter neutral for missing 3rd bar-series fill.
+    if (this.chartStyleId === 102 && seriesType === 'bar' && normalizedIndex === 2) {
+      const lighter = getRenderColor({
+        type: 'solidFill',
+        color: baseColor,
+        alpha: 1,
+        lumMod: 0.6,
+        lumOff: 0.4,
+      } as any);
+      if (lighter) return lighter;
+    }
+
+    return baseColor;
   }
 
   private parsePieColors(ser: any): string[] {
@@ -390,7 +419,7 @@ export default class ChartNode extends Node {
     return result;
   }
 
-  private parseBarSeries(series: any[], chartData: any): any[] {
+  private parseBarSeries(series: any[], chartData: any, valueAxisId?: string): any[] {
     let stack: string | undefined;
     const grouping = get(chartData, ['c:grouping', 'attrs', 'val']);
     if (grouping === 'stacked') stack = 'Ad';
@@ -402,6 +431,7 @@ export default class ChartNode extends Node {
         name: get(ser, ['c:tx', 'c:strRef', 'c:strCache', 'c:pt', 'c:v']),
         data: this.getVal(ser),
         stack,
+        __valAxisId: valueAxisId,
       };
 
       const label = this.parseSeriesLabel(ser, chartData, 'bar');
@@ -428,7 +458,7 @@ export default class ChartNode extends Node {
     return result;
   }
 
-  private parseLineSeries(series: any[], chartData: any): any[] {
+  private parseLineSeries(series: any[], chartData: any, valueAxisId?: string): any[] {
     let stack: string | undefined;
     const grouping = get(chartData, ['c:grouping', 'attrs', 'val']);
     if (grouping === 'stacked') stack = 'Ad';
@@ -440,6 +470,7 @@ export default class ChartNode extends Node {
         name: get(ser, ['c:tx', 'c:strRef', 'c:strCache', 'c:pt', 'c:v']),
         data: this.getVal(ser),
         stack,
+        __valAxisId: valueAxisId,
       };
 
       const label = this.parseSeriesLabel(ser, chartData, 'line');
@@ -638,56 +669,124 @@ export default class ChartNode extends Node {
     return pts.map((pt: any) => +get(pt, ['c:v']));
   }
 
+  private parseManualLayout(layout: any): { x: number; y: number; w: number; h: number } | undefined {
+    if (!layout) return undefined;
+    const x = parseFloat(get(layout, ['c:x', 'attrs', 'val']) ?? get(layout, ['c:x']));
+    const y = parseFloat(get(layout, ['c:y', 'attrs', 'val']) ?? get(layout, ['c:y']));
+    const w = parseFloat(get(layout, ['c:w', 'attrs', 'val']) ?? get(layout, ['c:w']));
+    const h = parseFloat(get(layout, ['c:h', 'attrs', 'val']) ?? get(layout, ['c:h']));
+    if ([x, y, w, h].some((v) => !isFinite(v))) return undefined;
+    return { x, y, w, h };
+  }
+
   private parseAxes(plotArea: any): void {
     // Find the value axis (c:valAx) and category axis (c:catAx or c:dateAx)
-    const valAx = get(plotArea, ['c:valAx']);
-    const catAx = get(plotArea, ['c:catAx']) || get(plotArea, ['c:dateAx']);
+    let valAxes = get(plotArea, ['c:valAx']) || [];
+    if (!Array.isArray(valAxes)) valAxes = [valAxes];
+
+    const catAxesRaw = get(plotArea, ['c:catAx']) || get(plotArea, ['c:dateAx']) || [];
+    const catAxes = Array.isArray(catAxesRaw) ? catAxesRaw : [catAxesRaw];
+    const catAx = catAxes[0];
 
     // Determine which echarts axis is the value axis
     const isBarHorizontal = this.options.yAxis?.type === 'category';
     const valAxisKey = isBarHorizontal ? 'xAxis' : 'yAxis';
     const catAxisKey = isBarHorizontal ? 'yAxis' : 'xAxis';
 
-    // Apply value axis config
-    if (valAx && this.options[valAxisKey]) {
+    // Apply value axis config (supports multi-axis charts)
+    const existingValAxis = this.options[valAxisKey];
+    const baseValAxis = Array.isArray(existingValAxis) ? existingValAxis[0] : existingValAxis;
+    const valAxisConfigs = valAxes.map((valAx: any) => {
+      const axisCfg: any = { ...(baseValAxis || { type: 'value' }) };
       const deleted = get(valAx, ['c:delete', 'attrs', 'val']) === '1';
-      if (deleted) {
-        this.options[valAxisKey].show = false;
-      }
+      if (deleted) axisCfg.show = false;
       const min = get(valAx, ['c:scaling', 'c:min', 'attrs', 'val']);
       const max = get(valAx, ['c:scaling', 'c:max', 'attrs', 'val']);
-      if (min !== undefined) this.options[valAxisKey].min = +min;
-      if (max !== undefined) this.options[valAxisKey].max = +max;
+      if (min !== undefined) axisCfg.min = +min;
+      if (max !== undefined) axisCfg.max = +max;
+      return axisCfg;
+    });
+
+    if (valAxisConfigs.length > 1) {
+      this.options[valAxisKey] = valAxisConfigs;
+    } else if (valAxisConfigs.length === 1) {
+      this.options[valAxisKey] = valAxisConfigs[0];
+    }
+
+    if (Array.isArray(this.options.series)) {
+      const valAxisIdToIndex = new Map<string, number>();
+      valAxes.forEach((ax: any, i: number) => {
+        const id = get(ax, ['c:axId', 'attrs', 'val']);
+        if (id !== undefined && id !== null) valAxisIdToIndex.set(String(id), i);
+      });
+
+      this.options.series.forEach((series: any) => {
+        const seriesValAxisId = series.__valAxisId ? String(series.__valAxisId) : undefined;
+        const axisIndex = seriesValAxisId ? (valAxisIdToIndex.get(seriesValAxisId) ?? 0) : 0;
+        if (valAxisConfigs.length > 1) {
+          if (valAxisKey === 'yAxis') series.yAxisIndex = axisIndex;
+          else series.xAxisIndex = axisIndex;
+        }
+        delete series.__valAxisId;
+      });
     }
 
     // Apply category axis config
     if (catAx && this.options[catAxisKey]) {
+      const catAxisTarget = Array.isArray(this.options[catAxisKey])
+        ? this.options[catAxisKey][0]
+        : this.options[catAxisKey];
       const deleted = get(catAx, ['c:delete', 'attrs', 'val']) === '1';
-      if (deleted) {
-        this.options[catAxisKey].show = false;
+      if (deleted && catAxisTarget) {
+        catAxisTarget.show = false;
       }
     }
 
-    // Compact grid — reduce padding so chart data fills the space
-    const hasValAxis = valAx && get(valAx, ['c:delete', 'attrs', 'val']) !== '1';
-    this.options.grid = {
-      top: 5,
-      bottom: 5,
-      left: hasValAxis ? 5 : 0,
-      right: 5,
-      containLabel: true,
-    };
+    // Use manual layout from PPTX if available, otherwise compact grid
+    const primaryValAx = valAxes[0];
+    const hasValAxis = primaryValAx && get(primaryValAx, ['c:delete', 'attrs', 'val']) !== '1';
+    if (this.plotAreaLayout) {
+      const { x, y, w, h } = this.plotAreaLayout;
+      this.options.grid = {
+        top: `${(y * 100).toFixed(1)}%`,
+        left: `${(x * 100).toFixed(1)}%`,
+        right: `${((1 - x - w) * 100).toFixed(1)}%`,
+        bottom: `${((1 - y - h) * 100).toFixed(1)}%`,
+        containLabel: false,
+      };
+    } else {
+      this.options.grid = {
+        top: 5,
+        bottom: 5,
+        left: hasValAxis ? 5 : 0,
+        right: 5,
+        containLabel: true,
+      };
+    }
 
     // Compact axis labels
-    if (this.options.xAxis) {
-      this.options.xAxis.axisLabel = { ...this.options.xAxis.axisLabel, fontSize: 8 };
-    }
-    if (this.options.yAxis && this.options.yAxis.show !== false) {
-      this.options.yAxis.axisLabel = { ...this.options.yAxis.axisLabel, fontSize: 8 };
-    }
+    const xAxes = Array.isArray(this.options.xAxis) ? this.options.xAxis : [this.options.xAxis];
+    xAxes.filter(Boolean).forEach((axis: any) => {
+      axis.axisLabel = { ...axis.axisLabel, fontSize: 8 };
+    });
 
-    // Compact legend text
-    if (this.options.legend && this.options.legend.bottom !== undefined) {
+    const yAxes = Array.isArray(this.options.yAxis) ? this.options.yAxis : [this.options.yAxis];
+    yAxes.filter(Boolean).forEach((axis: any) => {
+      if (axis.show !== false) {
+        axis.axisLabel = { ...axis.axisLabel, fontSize: 8 };
+      }
+    });
+
+    // Apply legend manual layout if available
+    if (this.options.legend) {
+      if (this.legendLayout) {
+        const { x, y, w } = this.legendLayout;
+        this.options.legend.left = `${(x * 100).toFixed(1)}%`;
+        this.options.legend.top = `${(y * 100).toFixed(1)}%`;
+        this.options.legend.width = `${(w * 100).toFixed(1)}%`;
+        delete this.options.legend.bottom;
+      }
+      // Compact legend text
       this.options.legend.textStyle = { fontSize: 8 };
       this.options.legend.itemWidth = 10;
       this.options.legend.itemHeight = 8;
