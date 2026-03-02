@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PPTX Preview Test</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #1a1a1a; font-family: sans-serif; color: #fff; }
+    #controls { padding: 16px; text-align: center; }
+    #controls button, #controls input { padding: 8px 16px; margin: 4px; cursor: pointer; }
+    #status { padding: 8px; text-align: center; color: #aaa; }
+    #preview { width: 100%; }
+  </style>
+</head>
+<body>
+  <div id="controls">
+    <button id="loadBtn">Load test.pptx</button>
+    <input type="file" id="fileInput" accept=".pptx" />
+  </div>
+  <div id="status">Ready</div>
+  <div id="preview"></div>
+
+  <script type="module">
+    import { init } from './src/index.ts';
+
+    const previewEl = document.getElementById('preview');
+    const status = document.getElementById('status');
+    const previewer = init(previewEl, {
+      width: Math.min(window.innerWidth, 960),
+      height: window.innerHeight - 100,
+      mode: 'scroll'
+    });
+
+    document.getElementById('loadBtn').addEventListener('click', async () => {
+      status.textContent = 'Loading test.pptx...';
+      try {
+        const resp = await fetch('/test.pptx');
+        const buf = await resp.arrayBuffer();
+        await previewer.preview(buf);
+        status.textContent = 'Done!';
+      } catch (err) {
+        status.textContent = 'Error: ' + err.message;
+        console.error(err);
+      }
+    });
+
+    document.getElementById('fileInput').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      status.textContent = 'Loading ' + file.name + '...';
+      const reader = new FileReader();
+      reader.onload = async (ev) => {
+        try {
+          await previewer.preview(ev.target.result);
+          status.textContent = 'Done!';
+        } catch (err) {
+          status.textContent = 'Error: ' + err.message;
+          console.error(err);
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    });
+  </script>
+</body>
+</html>
