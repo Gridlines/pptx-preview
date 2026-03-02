@@ -149,12 +149,21 @@ function renderBulletChar(p: HTMLElement, props: any) {
   const firstChild = p.firstElementChild as HTMLElement;
   span.style.color = firstChild.style.color;
   span.style.fontSize = firstChild.style.fontSize;
+  if (props.buFont) span.style.fontFamily = props.buFont;
   const charMap: { [key: string]: string } = {
     'n': '■', 'l': '●', 'u': '◆', 'p': '□', 'ü': '✔', 'Ø': '➢', '•': '•', '§': '■',
   };
   span.textContent = charMap[props.buChar] || '■';
-  const bulletFontSize = parseFloat(firstChild.style.fontSize) || 10;
-  span.style.fontSize = (bulletFontSize * 0.5) + 'px';
+  const textFontSize = parseFloat(firstChild.style.fontSize) || 10;
+  let bulletFontSize = textFontSize;
+  if (typeof props.buSzPts === 'number') {
+    bulletFontSize = props.buSzPts;
+  } else if (typeof props.buSzPct === 'number') {
+    bulletFontSize = textFontSize * props.buSzPct;
+  } else if (props.buSzTx) {
+    bulletFontSize = textFontSize;
+  }
+  span.style.fontSize = bulletFontSize + 'px';
   span.style.verticalAlign = 'middle';
   const indent = Math.abs(props.indent || 0);
   if (indent > 0) {
@@ -188,10 +197,31 @@ export function _renderParagraph(
     return (maxSize || inheritRProps.size || defaultSize) * fontScale;
   };
 
+  const resolveParagraphSpace = (kind: 'Before' | 'After') => {
+    const pointsKey = kind === 'Before' ? 'spaceBefore' : 'spaceAfter';
+    const pctKey = kind === 'Before' ? 'spaceBeforePct' : 'spaceAfterPct';
+
+    if (props[pointsKey] !== undefined) return props[pointsKey];
+    if (props[pctKey] !== undefined) return props[pctKey] * calcFontSize();
+
+    if (inheritProps[pointsKey] !== undefined) return inheritProps[pointsKey];
+    if (inheritProps[pctKey] !== undefined) return inheritProps[pctKey] * calcFontSize();
+
+    return 0;
+  };
+
+  const resolveLineHeight = () => {
+    if (props.lineHeight !== undefined) return props.lineHeight;
+    if (props.lineHeightPts !== undefined) return props.lineHeightPts / calcFontSize();
+    if (inheritProps.lineHeight !== undefined) return inheritProps.lineHeight;
+    if (inheritProps.lineHeightPts !== undefined) return inheritProps.lineHeightPts / calcFontSize();
+    return 1;
+  };
+
   const wrapper = document.createElement('div');
-  const spaceBefore = options.isFirst ? 0 : mergedProps.spaceBefore || 0;
-  const spaceAfter = options.isLast ? 0 : mergedProps.spaceAfter || 0;
-  const topMargin = options.isTable ? 0 : Math.floor(0.2 * calcFontSize());
+  const spaceBefore = options.isFirst ? 0 : resolveParagraphSpace('Before');
+  const spaceAfter = options.isLast ? 0 : resolveParagraphSpace('After');
+  const topMargin = options.isTable ? 0 : (options.isFirst ? Math.floor(0.2 * calcFontSize()) : 0);
   wrapper.style.margin = `${topMargin}px  0 0 0`;
   wrapper.style.padding = `${Math.floor(spaceBefore)}px 0px ${Math.floor(spaceAfter)}px 0px`;
 
@@ -204,7 +234,7 @@ export function _renderParagraph(
   p.style.textAlign = (mergedProps.align && alignMap[mergedProps.align]) || 'center';
   if (mergedProps.align === 'dist') p.style.textAlignLast = 'justify';
 
-  let lineHeight = mergedProps.hasOwnProperty('lineHeight') ? mergedProps.lineHeight : 1;
+  let lineHeight = resolveLineHeight();
   if (options.bodyProps?.normAutofit?.lnSpcReduction) {
     lineHeight *= 1 - options.bodyProps.normAutofit.lnSpcReduction;
   }

@@ -42,6 +42,8 @@ export function renderTable(tableNode: TableNode): HTMLDivElement {
         cellWidth += gridCols[ci]?.width || 0;
       }
       tdEl.style.width = (cellWidth || 30) + 'px';
+      // Keep column width stable when cells have horizontal padding/borders.
+      tdEl.style.boxSizing = 'border-box';
       tdEl.style.wordBreak = 'break-word';
       tdEl.style.overflowWrap = 'break-word';
       if (tdProps.rowSpan) tdEl.setAttribute('rowspan', tdProps.rowSpan + '');

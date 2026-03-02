@@ -312,12 +312,32 @@ export default class TextBody {
       result.lineHeight = parseInt(pPr['a:lnSpc']['a:spcPct'].attrs.val) / 1e5;
     }
 
+    if (get(pPr, ['a:lnSpc', 'a:spcPts', 'attrs', 'val'])) {
+      result.lineHeightPts = parseInt(pPr['a:lnSpc']['a:spcPts'].attrs.val) / 100;
+    }
+
     if (get(pPr, ['a:buAutoNum', 'attrs', 'type'])) {
       result.buAutoNum = pPr['a:buAutoNum'].attrs.type;
     }
 
     if (get(pPr, ['a:buChar', 'attrs', 'char'])) {
       result.buChar = pPr['a:buChar'].attrs.char;
+    }
+
+    if (get(pPr, ['a:buFont', 'attrs', 'typeface'])) {
+      result.buFont = pPr['a:buFont'].attrs.typeface;
+    }
+
+    if (get(pPr, ['a:buSzPct', 'attrs', 'val'])) {
+      result.buSzPct = parseInt(pPr['a:buSzPct'].attrs.val) / 1e5;
+    }
+
+    if (get(pPr, ['a:buSzPts', 'attrs', 'val'])) {
+      result.buSzPts = parseInt(pPr['a:buSzPts'].attrs.val) / 100;
+    }
+
+    if (get(pPr, ['a:buSzTx'])) {
+      result.buSzTx = true;
     }
 
     if (get(pPr, ['a:buNone'])) {
@@ -328,8 +348,16 @@ export default class TextBody {
       result.spaceBefore = parseInt(pPr['a:spcBef']['a:spcPts'].attrs.val) / 100;
     }
 
+    if (get(pPr, ['a:spcBef', 'a:spcPct', 'attrs', 'val'])) {
+      result.spaceBeforePct = parseInt(pPr['a:spcBef']['a:spcPct'].attrs.val) / 1e5;
+    }
+
     if (get(pPr, ['a:spcAft', 'a:spcPts', 'attrs', 'val'])) {
       result.spaceAfter = parseInt(pPr['a:spcAft']['a:spcPts'].attrs.val) / 100;
+    }
+
+    if (get(pPr, ['a:spcAft', 'a:spcPct', 'attrs', 'val'])) {
+      result.spaceAfterPct = parseInt(pPr['a:spcAft']['a:spcPct'].attrs.val) / 1e5;
     }
 
     if (get(pPr, ['a:defRPr'])) {

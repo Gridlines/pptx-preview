@@ -266,6 +266,17 @@ describe('Coastal Greenlight PPTX - Table Overflow Bug', () => {
       }
     });
 
+    it('rendered table cells should use border-box sizing', () => {
+      for (const table of parsedTables) {
+        const mock = createMockTableNode(table);
+        const el = renderTable(mock as any);
+        const tdEls = el.querySelectorAll('td');
+        tdEls.forEach((tdEl) => {
+          expect((tdEl as HTMLTableCellElement).style.boxSizing).toBe('border-box');
+        });
+      }
+    });
+
     it('Table 9 (73 rows, 10 cols) should not exceed slide boundaries', () => {
       const table9 = parsedTables.find((t) => t.name === 'Table 9')!;
       const mock = createMockTableNode(table9);
