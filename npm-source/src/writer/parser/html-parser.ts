@@ -1,7 +1,7 @@
 import { SlideDefinition, ShapeDefinition, WriterOptions } from '../types/writer-types';
 import { handleElement } from './element-handlers';
 import { calculateLayout } from './layout-calculator';
-import { px2emu } from '../utils/unit-reverse';
+import { parseRenderedSlideDocument } from './rendered-html-parser';
 
 const DEFAULT_WIDTH = 960;
 const DEFAULT_HEIGHT = 540;
@@ -13,6 +13,14 @@ export function parseSlideHtml(html: string, options?: WriterOptions): SlideDefi
   const defaultFontSize = options?.defaultFontSize || 18;
 
   const doc = parseHtmlFragment(html);
+
+  // If this is HTML emitted by our renderer, parse positioned shape wrappers directly.
+  const renderedSlide = parseRenderedSlideDocument(doc, options);
+  if (renderedSlide) {
+    calculateLayout(renderedSlide.shapes, slideWidth, slideHeight);
+    return renderedSlide;
+  }
+
   const shapes: ShapeDefinition[] = [];
 
   const children = doc.body ? Array.from(doc.body.childNodes) : Array.from(doc.childNodes);

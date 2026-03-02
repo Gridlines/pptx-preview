@@ -161,7 +161,12 @@ export default class ShapeNode extends Node {
 
     const ln = get(this.source, ['p:spPr', 'a:ln']);
     if (ln) {
-      Object.assign(this.border, parseLine(ln, this.theme, this));
+      if (get(ln, 'a:noFill')) {
+        // Shape explicitly says no border — override any theme-inherited border
+        this.border = {};
+      } else {
+        Object.assign(this.border, parseLine(ln, this.theme, this));
+      }
     }
 
     if (this.border.color && this.border.color.color && !this.border.width) {

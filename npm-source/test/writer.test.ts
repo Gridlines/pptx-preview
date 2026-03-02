@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import JSZip from 'jszip';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { createPptx } from '../src/writer';
 import { escapeXml, tag, xmlDecl } from '../src/writer/utils/xml-builder';
 import { px2emu, fontSize2hundredthPt } from '../src/writer/utils/unit-reverse';
@@ -401,6 +403,27 @@ describe('parseSlideHtml', () => {
     const result = parseSlideHtml('');
     expect(result.shapes).toHaveLength(0);
   });
+
+  it('parses rendered slide-capture HTML with absolute shape positions', () => {
+    const html = readFileSync(
+      resolve(process.cwd(), 'slide-captures/coastal-greenlight-slide1.html'),
+      'utf8'
+    );
+    const result = parseSlideHtml(html);
+
+    expect(result.shapes.length).toBeGreaterThan(0);
+    expect(result.sourceSize).toEqual({ width: 792, height: 612 });
+
+    const memoShape = result.shapes.find((shape) =>
+      (shape.paragraphs || []).some((para) =>
+        para.rows.some((row) => row.text.includes('Greenlight Memorandum'))
+      )
+    );
+
+    expect(memoShape).toBeTruthy();
+    expect(memoShape?.offset.x).toBe(px2emu(45));
+    expect(memoShape?.offset.y).toBe(px2emu(471));
+  });
 });
 
 // ---------- Integration: createPptx ----------
@@ -579,5 +602,34 @@ describe('createPptx', () => {
     expect(slideXml).toContain('Presentation Title');
     expect(slideXml).toContain('First point');
     expect(slideXml).toContain('Header 1');
+  });
+
+  it('creates PPTX from rendered slide-capture HTML', async () => {
+    const html = readFileSync(
+      resolve(process.cwd(), 'slide-captures/coastal-greenlight-slide1.html'),
+      'utf8'
+    );
+
+    const buffer = await createPptx([{ html }]);
+    const zip = await JSZip.loadAsync(buffer);
+    const slideXml = await zip.file('ppt/slides/slide1.xml')!.async('text');
+
+    expect(slideXml).toContain('Greenlight Memorandum');
+    expect(slideXml).toContain(`x="${px2emu(45)}"`);
+    expect(slideXml).toContain(`y="${px2emu(471)}"`);
+  });
+
+  it('infers slide size from rendered slide-capture HTML', async () => {
+    const html = readFileSync(
+      resolve(process.cwd(), 'slide-captures/coastal-greenlight-slide1.html'),
+      'utf8'
+    );
+
+    const buffer = await createPptx([{ html }]);
+    const zip = await JSZip.loadAsync(buffer);
+    const presXml = await zip.file('ppt/presentation.xml')!.async('text');
+
+    expect(presXml).toContain(`cx="${px2emu(792)}"`);
+    expect(presXml).toContain(`cy="${px2emu(612)}"`);
   });
 });

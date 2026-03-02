@@ -66,6 +66,12 @@ function renderRow(row: any, inheritRProps: any, bodyProps?: any, slideNumber?: 
   if (mergedProps.italic) span.style.fontStyle = 'italic';
   if (mergedProps.underline && mergedProps.underline !== 'none') span.style.textDecoration = 'underline';
   if (mergedProps.background) span.style.backgroundColor = getRenderColor(mergedProps.background);
+  if (mergedProps.baseline) {
+    const val = parseInt(mergedProps.baseline);
+    if (val > 0) span.style.verticalAlign = 'super';
+    else if (val < 0) span.style.verticalAlign = 'sub';
+    span.style.fontSize = Math.round(fontSize * 0.65) + 'px';
+  }
   span.style.wordBreak = 'break-word';
 
   return span;
@@ -231,7 +237,8 @@ export function _renderParagraph(
   p.style.wordBreak = 'break-word';
 
   const alignMap: { [key: string]: string } = { ctr: 'center', l: 'left', r: 'right', dist: 'justify' };
-  p.style.textAlign = (mergedProps.align && alignMap[mergedProps.align]) || 'center';
+  const defaultAlign = options.isTable ? 'left' : 'center';
+  p.style.textAlign = (mergedProps.align && alignMap[mergedProps.align]) || defaultAlign;
   if (mergedProps.align === 'dist') p.style.textAlignLast = 'justify';
 
   let lineHeight = resolveLineHeight();

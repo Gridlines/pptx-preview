@@ -14,6 +14,9 @@ export function calculateLayout(
   let currentY = MARGIN_Y;
 
   for (const shape of shapes) {
+    // Explicit coordinates extracted from rendered HTML should never be relaid out.
+    if (shape.layoutLocked) continue;
+
     // If the shape already has non-zero position, skip it
     if (shape.offset.x !== 0 || shape.offset.y !== 0) continue;
 

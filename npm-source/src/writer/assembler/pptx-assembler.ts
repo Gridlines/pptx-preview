@@ -20,8 +20,9 @@ export async function assemblePptx(
   options?: WriterOptions
 ): Promise<ArrayBuffer> {
   const zip = new JSZip();
-  const slideWidth = options?.slideWidth || DEFAULT_WIDTH;
-  const slideHeight = options?.slideHeight || DEFAULT_HEIGHT;
+  const inferredSize = inferSlideSize(slides);
+  const slideWidth = options?.slideWidth || inferredSize?.width || DEFAULT_WIDTH;
+  const slideHeight = options?.slideHeight || inferredSize?.height || DEFAULT_HEIGHT;
   const slideCount = Math.max(slides.length, 1);
 
   // 1. Root .rels
@@ -110,4 +111,24 @@ export async function assemblePptx(
   zip.file('[Content_Types].xml', generateContentTypesXml(parts));
 
   return zip.generateAsync({ type: 'arraybuffer' });
+}
+
+function inferSlideSize(slides: SlideDefinition[]): { width: number; height: number } | undefined {
+  let width = 0;
+  let height = 0;
+
+  for (const slide of slides) {
+    const sourceSize = slide.sourceSize;
+    if (!sourceSize) continue;
+    if (!Number.isFinite(sourceSize.width) || !Number.isFinite(sourceSize.height)) continue;
+    if (sourceSize.width <= 0 || sourceSize.height <= 0) continue;
+
+    width = Math.max(width, sourceSize.width);
+    height = Math.max(height, sourceSize.height);
+  }
+
+  if (width > 0 && height > 0) {
+    return { width, height };
+  }
+  return undefined;
 }

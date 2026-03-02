@@ -8,11 +8,16 @@ export function renderTable(tableNode: TableNode): HTMLDivElement {
   const rows = tableNode.tr;
   const gridCols = tableNode.tableGrid.gridCol;
 
+  // Use actual gridCol sum for width so fractional column widths aren't clipped
+  // by the rounded shape extent (extend.w uses Math.round which can truncate).
+  const gridColWidth = gridCols.reduce((sum: number, col: any) => sum + (col.width || 0), 0);
+  const tableWidth = Math.ceil(Math.max(gridColWidth, extend.w));
+
   const wrapper = document.createElement('div');
   wrapper.style.position = 'absolute';
   wrapper.style.left = offset.x + 'px';
   wrapper.style.top = offset.y + 'px';
-  wrapper.style.width = extend.w + 'px';
+  wrapper.style.width = tableWidth + 'px';
   wrapper.style.height = extend.h + 'px';
   wrapper.style.overflow = 'hidden';
 
@@ -49,7 +54,7 @@ export function renderTable(tableNode: TableNode): HTMLDivElement {
       if (tdProps.rowSpan) tdEl.setAttribute('rowspan', tdProps.rowSpan + '');
       if (tdProps.gridSpan) tdEl.setAttribute('colspan', tdProps.gridSpan + '');
 
-      const background = tdProps.background || inheritTcStyle?.background;
+      const background = tdProps.noFill ? undefined : (tdProps.background || inheritTcStyle?.background);
       if (background) tdEl.style.background = getRenderColor(background);
 
       const border = { ...inheritTcStyle?.border, ...tdProps.border };

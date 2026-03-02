@@ -118,6 +118,7 @@ export default class TableNode extends Node {
 
     const solidFill = get(td, ['a:tcPr', 'a:solidFill']);
     if (solidFill) result.props.background = getSolidFillColor(solidFill, this.theme, this.ctx);
+    if (get(td, ['a:tcPr', 'a:noFill']) !== undefined) result.props.noFill = true;
 
     const txBody = get(td, ['a:txBody']);
     let paragraphs = get(txBody, ['a:p']);

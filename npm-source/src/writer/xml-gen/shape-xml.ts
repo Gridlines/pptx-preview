@@ -2,6 +2,7 @@ import { ShapeDefinition } from '../types/writer-types';
 import { tag } from '../utils/xml-builder';
 import { generateTxBodyXml } from './text-xml';
 import { generateColorXml } from './color-xml';
+import { px2emu } from '../utils/unit-reverse';
 
 export function generateShapeXml(shape: ShapeDefinition, shapeId: number): string {
   const nvSpPr = tag('p:nvSpPr', undefined,
@@ -19,9 +20,14 @@ export function generateShapeXml(shape: ShapeDefinition, shapeId: number): strin
 
   const xfrm = tag('a:xfrm', xfrmAttrs, xfrmChildren);
 
-  let prstGeom = 'rect';
-  if (shape.type === 'ellipse') prstGeom = 'ellipse';
-  const geom = tag('a:prstGeom', { prst: prstGeom }, tag('a:avLst'));
+  let geom = '';
+  if (shape.type === 'customGeom' && shape.customGeom?.segments?.length) {
+    geom = generateCustomGeomXml(shape);
+  } else {
+    let prstGeom = 'rect';
+    if (shape.type === 'ellipse') prstGeom = 'ellipse';
+    geom = tag('a:prstGeom', { prst: prstGeom }, tag('a:avLst'));
+  }
 
   let fillXml = '';
   if (shape.background && shape.background.type === 'solidFill' && (shape.background as any).color) {
@@ -36,4 +42,51 @@ export function generateShapeXml(shape: ShapeDefinition, shapeId: number): strin
   }
 
   return tag('p:sp', undefined, nvSpPr + spPr + txBody);
+}
+
+function generateCustomGeomXml(shape: ShapeDefinition): string {
+  const geom = shape.customGeom;
+  if (!geom || !geom.segments.length) {
+    return tag('a:prstGeom', { prst: 'rect' }, tag('a:avLst'));
+  }
+
+  const w = px2emu(Math.max(geom.width, 1));
+  const h = px2emu(Math.max(geom.height, 1));
+
+  let order = 1;
+  const pathChildren = geom.segments
+    .map((seg) => {
+      if (seg.cmd === 'M') {
+        return tag(
+          'a:moveTo',
+          { order: String(order++) },
+          tag('a:pt', { x: String(px2emu(seg.x)), y: String(px2emu(seg.y)) })
+        );
+      }
+      if (seg.cmd === 'L') {
+        return tag(
+          'a:lnTo',
+          { order: String(order++) },
+          tag('a:pt', { x: String(px2emu(seg.x)), y: String(px2emu(seg.y)) })
+        );
+      }
+      if (seg.cmd === 'C') {
+        return tag(
+          'a:cubicBezTo',
+          { order: String(order++) },
+          tag('a:pt', { x: String(px2emu(seg.x1)), y: String(px2emu(seg.y1)) }) +
+            tag('a:pt', { x: String(px2emu(seg.x2)), y: String(px2emu(seg.y2)) }) +
+            tag('a:pt', { x: String(px2emu(seg.x)), y: String(px2emu(seg.y)) })
+        );
+      }
+      return tag('a:close', { order: String(order++) });
+    })
+    .join('');
+
+  return tag(
+    'a:custGeom',
+    undefined,
+    tag('a:avLst') +
+      tag('a:pathLst', undefined, tag('a:path', { w: String(w), h: String(h) }, pathChildren))
+  );
 }

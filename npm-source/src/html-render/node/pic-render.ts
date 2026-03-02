@@ -1,12 +1,23 @@
 import PicNode from '../../reader/node/PicNode';
 
-export function renderPic(node: PicNode): HTMLElement {
+// MIME types that browsers cannot render as <img> src
+const UNSUPPORTED_IMAGE_TYPES = ['image/x-emf', 'image/x-wmf'];
+
+export function renderPic(node: PicNode): HTMLElement | undefined {
   const extend = node.extend;
   const offset = node.offset;
   const clip = node.clip;
   const base64 = node.base64;
   const audioFile = node.audioFile;
   const videoFile = node.videoFile;
+
+  // Skip images with browser-unsupported formats (e.g. EMF, WMF)
+  if (base64) {
+    const mimeMatch = base64.match(/^data:([^;]+);/);
+    if (mimeMatch && UNSUPPORTED_IMAGE_TYPES.includes(mimeMatch[1])) {
+      return undefined;
+    }
+  }
 
   const wrapper = document.createElement('div');
   wrapper.style.setProperty('position', 'absolute');

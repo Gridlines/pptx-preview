@@ -19,7 +19,18 @@ export function renderChart(chartNode: ChartNode): HTMLDivElement {
         width: extend.w,
         height: extend.h,
       });
-      chart.setOption(chartNode.options);
+      // Disable animation so static HTML captures contain fully rendered chart geometry.
+      const options = {
+        ...chartNode.options,
+        animation: false,
+        animationDuration: 0,
+        animationDurationUpdate: 0,
+        stateAnimation: { duration: 0 },
+      };
+      chart.setOption(options, {
+        notMerge: true,
+        lazyUpdate: false,
+      });
     } catch (e) {
       // silently ignore chart render errors
     }
