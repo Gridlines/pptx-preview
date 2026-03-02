@@ -125,7 +125,8 @@ function extractColumnWidths(rows: Element[], colCount: number): number[] {
 function parseTableRow(tr: HTMLElement, ctx: ParserContext, colCount: number): TableTrType {
   const rawHeight = getStyleAttr(tr, 'height');
   const heightPx = parseFloat(rawHeight);
-  const rowHeight = Number.isFinite(heightPx) && heightPx > 0 ? heightPx : 29;
+  // Allow very small heights (even 0px); only default when truly missing
+  const rowHeight = Number.isFinite(heightPx) && heightPx >= 0 ? heightPx : 29;
 
   const cells = Array.from(tr.children).filter((c) => {
     const tag = c.tagName.toLowerCase();
@@ -134,9 +135,47 @@ function parseTableRow(tr: HTMLElement, ctx: ParserContext, colCount: number): T
 
   const td: TableTdType[] = cells.map((cell) => parseTableCell(cell, ctx));
 
+  // OOXML requires every row's cells to cover all grid columns.
+  // table-render skips vMerge/hMerge cells, so rows may be short.
+  // After a cell with gridSpan > 1, the missing continuation cells
+  // must be hMerge cells (not plain empty cells).
+  // First, expand gridSpan cells by inserting hMerge continuation cells right after them.
+  const expanded: TableTdType[] = [];
+  for (const cell of td) {
+    expanded.push(cell);
+    const span = (cell.props.gridSpan && cell.props.gridSpan > 1) ? cell.props.gridSpan : 1;
+    // Insert (span - 1) hMerge continuation cells after this cell
+    for (let i = 1; i < span; i++) {
+      expanded.push(makeHMergeCell(ctx));
+    }
+  }
+
+  // Now pad any remaining shortfall with empty cells (e.g. missing vMerge cells)
+  let logicalCols = expanded.length;
+  while (logicalCols < colCount) {
+    expanded.push(makeEmptyCell(ctx));
+    logicalCols++;
+  }
+
+  const tdFinal = expanded;
+
   return {
     props: { height: rowHeight },
-    td,
+    td: tdFinal,
+  };
+}
+
+function makeEmptyCell(ctx: ParserContext): TableTdType {
+  return {
+    props: { marL: 0, marR: 0, marT: 0, marB: 0 },
+    paragraphs: [{ props: {}, rows: [{ text: '', props: { size: ctx.defaultFontSize } }] }],
+  };
+}
+
+function makeHMergeCell(ctx: ParserContext): TableTdType {
+  return {
+    props: { marL: 0, marR: 0, marT: 0, marB: 0, hMerge: true },
+    paragraphs: [{ props: {}, rows: [{ text: '', props: { size: ctx.defaultFontSize } }] }],
   };
 }
 

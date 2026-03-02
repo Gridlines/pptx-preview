@@ -12,5 +12,6 @@ export declare function _renderParagraph(paragraph: any, levelIndex?: number, op
     isLast?: boolean;
     bodyProps?: any;
     isTable?: boolean;
+    slideNumber?: number;
 }): HTMLElement;
-export declare function renderTextBody(textBody: TextBody, textArea: textArea, isTextBox?: boolean): HTMLElement;
+export declare function renderTextBody(textBody: TextBody, textArea: textArea, isTextBox?: boolean, slideNumber?: number): HTMLElement;

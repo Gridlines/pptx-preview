@@ -1,2 +1,2 @@
 import Group from '../../reader/Group';
-export declare function renderGroup(groupNode: Group): HTMLDivElement;
+export declare function renderGroup(groupNode: Group, slideNumber?: number): HTMLDivElement;

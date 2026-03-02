@@ -34,23 +34,21 @@ function renderRow(row: any, inheritRProps: any, bodyProps?: any, slideNumber?: 
   const color = getRenderColor(mergedProps.color);
   if (color) span.style.color = color;
 
-  const nonChinese = /^[^\u4e00-\u9fff]+$/;
   if (mergedProps.typeface) {
     span.style.fontFamily = mergedProps.typeface;
     switch (mergedProps.typeface) {
       case 'DengXian':
-        if (nonChinese.test(row.text)) span.style.letterSpacing = -0.04 * fontSize + 'px';
+        span.style.letterSpacing = -0.04 * fontSize + 'px';
         break;
       case 'DengXian Light':
-        if (nonChinese.test(row.text)) span.style.letterSpacing = -0.05 * fontSize + 'px';
+        span.style.letterSpacing = -0.05 * fontSize + 'px';
         break;
       case 'STLiti':
       case 'SimSun':
       case 'NSimSun':
       case 'SimHei':
-        if (nonChinese.test(row.text)) span.style.fontSize = 0.85 * parseInt(span.style.fontSize) + 'px';
+        span.style.fontSize = 0.85 * parseInt(span.style.fontSize) + 'px';
         break;
-      case '华文中宋':
       case 'Fira Sans Extra Condensed Medium':
         span.style.fontSize = 0.85 * parseInt(span.style.fontSize) + 'px';
         break;
@@ -59,7 +57,7 @@ function renderRow(row: any, inheritRProps: any, bodyProps?: any, slideNumber?: 
         break;
     }
   } else {
-    if (nonChinese.test(row.text)) span.style.letterSpacing = -0.04 * fontSize + 'px';
+    span.style.letterSpacing = -0.04 * fontSize + 'px';
   }
 
   if (mergedProps.bold) span.style.fontWeight = 'bold';
@@ -68,9 +66,13 @@ function renderRow(row: any, inheritRProps: any, bodyProps?: any, slideNumber?: 
   if (mergedProps.background) span.style.backgroundColor = getRenderColor(mergedProps.background);
   if (mergedProps.baseline) {
     const val = parseInt(mergedProps.baseline);
-    if (val > 0) span.style.verticalAlign = 'super';
-    else if (val < 0) span.style.verticalAlign = 'sub';
-    span.style.fontSize = Math.round(fontSize * 0.65) + 'px';
+    if (val > 0) {
+      span.style.verticalAlign = 'super';
+      span.style.fontSize = Math.round(fontSize * 0.65) + 'px';
+    } else if (val < 0) {
+      span.style.verticalAlign = 'sub';
+      span.style.fontSize = Math.round(fontSize * 0.65) + 'px';
+    }
   }
   span.style.wordBreak = 'break-word';
 
@@ -113,8 +115,8 @@ function renderBulletAutoNum(p: HTMLElement, props: any, levelIndex: number) {
     case 'alphaLcParenR':
       span.textContent = englishCode(levelIndex).toLowerCase() + ')';
       break;
-    case 'ea1JpnChsDbPeriod':
-      span.textContent = toChineseNumber(levelIndex) + '.';
+    case 'ea1JpnChsDbPeriod': // Fallback to English/Arabic numbering
+      span.textContent = levelIndex + '.';
       break;
   }
   p.prepend(span);
@@ -138,15 +140,6 @@ function toRoman(num: number): string {
       num -= numerals[i].value;
     }
   }
-  return result;
-}
-
-function toChineseNumber(num: number): string {
-  const chars = ['〇', '一', '二', '三', '四', '五', '六', '七', '八', '九'];
-  if (!Number.isInteger(num) || num < 0) return '';
-  let result = '';
-  const str = num.toString();
-  for (let i = 0; i < str.length; i++) result += chars[parseInt(str[i], 10)];
   return result;
 }
 

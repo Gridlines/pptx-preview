@@ -196,7 +196,7 @@ export default class PPTX {
   }
 
   async getXmlByPath(path: string): Promise<string> {
-    if (!this._zipContents.files[path]) throw new Error('文件不存在');
+    if (!this._zipContents.files[path]) throw new Error('File does not exist');
     return await this._zipContents.files[path].async('text');
   }
 

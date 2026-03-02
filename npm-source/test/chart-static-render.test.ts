@@ -41,7 +41,8 @@ describe('Static Chart Rendering', () => {
     );
     const retransBarPath = firstPathByFill(retransChart, 'rgb\\(21,54,92\\)');
     expect(retransBarPath).toMatch(/l0 -[0-9.]+l-/);
-    expect(/fill=\"(rgb\(201,201,201\)|rgba\(201,201,201,1\)|#C9C9C9)\"/.test(retransChart)).toBe(true);
+    // Series 2 has <a:noFill/> — invisible "total" bar for data-label placement only
+    expect(/fill=\"(rgb\(201,201,201\)|rgba\(201,201,201,1\)|#C9C9C9)\"/.test(retransChart)).toBe(false);
 
     const industryAdChart = extractChartSvgSection(
       html,
@@ -50,12 +51,12 @@ describe('Static Chart Rendering', () => {
     const industryAdBarPath = firstPathByFill(industryAdChart, 'rgb\\(21,54,92\\)');
     expect(industryAdBarPath).toMatch(/l0 -[0-9.]+l-/);
 
+    // Combo line series has <a:ln><a:noFill/></a:ln> — should be invisible
     const comboLine = industryAdChart.match(
       /<path d=\"([^\"]+L[^\"]+L[^\"]+)\" fill=\"none\" stroke=\"([^\"]+)\" stroke-width=\"2\"/
     );
     expect(comboLine).toBeTruthy();
-    expect(comboLine![2]).not.toBe('none');
-    expect(new Set(['#5B9BD5', 'rgb(91,155,213)']).has(comboLine![2])).toBe(true);
+    expect(comboLine![2]).toBe('none');
     expect(industryAdChart).toContain('>6.5<');
     expect(industryAdChart).toContain('>$20<');
     expect(industryAdChart).not.toContain('20.357711198966602');

@@ -33,21 +33,3 @@ export function englishCode(number: number): string {
   const charCode = ((number % 26) || 26) - 1 + 65;
   return String.fromCharCode(charCode).repeat(level);
 }
-
-export function chineseNumber(number: number): string {
-  const chinese = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九'];
-  const units = ['', '十', '百', '千'];
-  if (number === 0) return chinese[0];
-  let result = '';
-  let num = number;
-  let unitIndex = 0;
-  while (num > 0) {
-    const digit = num % 10;
-    if (digit !== 0) {
-      result = chinese[digit] + units[unitIndex] + result;
-    }
-    num = Math.floor(num / 10);
-    unitIndex++;
-  }
-  return result;
-}

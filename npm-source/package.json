@@ -1,11 +1,11 @@
 {
-  "name": "pptx-preview",
+  "name": "gridlines-pptx-preview",
   "version": "1.0.7",
-  "description": "纯前端实现的pptx文件的预览库",
+  "description": "A pure frontend PPTX file preview library",
   "main": "dist/pptx-preview.es.js",
   "module": "dist/pptx-preview.es.js",
   "typings": "dist/index.d.ts",
-  "author": "微信：_hit757_",
+  "author": "WeChat: _hit757_",
   "license": "ISC",
   "keywords": [
     "pptx",

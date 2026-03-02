@@ -1,5 +1,5 @@
 /**
- * Debug: inspect slide 4 tables to understand the writer issue.
+ * Debug: generate slide 4 only, inspect table XML.
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync, writeFileSync, mkdirSync } from 'fs';
@@ -11,27 +11,10 @@ import { parseSlideHtml } from '../src/writer/parser/html-parser';
 import JSZip from 'jszip';
 
 describe('Debug slide 4 tables', () => {
-  it('inspects slide 4 node types', async () => {
+  it('render slide 4 HTML and inspect table wrappers', async () => {
     const pptxPath = resolve(__dirname, 'fixtures/coastal-greenlight.pptx');
-    const pptxBuffer = readFileSync(pptxPath);
     const pptx = new PPTX();
-    await pptx.load(new Uint8Array(pptxBuffer) as any);
-
-    console.log('Total slides:', pptx.slides.length);
-    const slide4 = pptx.slides[3];
-    console.log('Slide 4 node count:', slide4.nodes.length);
-    slide4.nodes.forEach((n: any, i: number) => {
-      console.log(`  node[${i}]:`, n.constructor.name,
-        'offset:', JSON.stringify(n.offset),
-        'extend:', JSON.stringify(n.extend));
-    });
-  });
-
-  it('renders slide 4 and checks HTML structure', async () => {
-    const pptxPath = resolve(__dirname, 'fixtures/coastal-greenlight.pptx');
-    const pptxBuffer = readFileSync(pptxPath);
-    const pptx = new PPTX();
-    await pptx.load(new Uint8Array(pptxBuffer) as any);
+    await pptx.load(new Uint8Array(readFileSync(pptxPath)) as any);
 
     const container = document.createElement('div');
     const htmlRender = new HtmlRender(container, pptx, {
@@ -40,90 +23,83 @@ describe('Debug slide 4 tables', () => {
     });
     htmlRender.renderSlide(3);
 
-    const wrapper = container.querySelector('.pptx-preview-slide-wrapper')!;
-    const layers = Array.from(wrapper.children).filter((c: any) =>
-      c.classList?.contains('slide-wrapper') ||
-      c.classList?.contains('slide-layout-wrapper') ||
-      c.classList?.contains('slide-master-wrapper')
-    );
+    const tables = container.querySelectorAll('table');
+    console.log('Tables found:', tables.length);
 
-    for (const layer of layers) {
-      const el = layer as HTMLElement;
-      console.log(`\nLayer: ${el.className}`);
-      const children = Array.from(el.children) as HTMLElement[];
-      for (const child of children) {
-        const hasTable = child.querySelector('table') ? ' [HAS TABLE]' : '';
-        const hasImg = child.querySelector('img') ? ' [HAS IMG]' : '';
-        console.log(`  child: <${child.tagName}> class="${child.className}" pos=${child.style.position} left=${child.style.left} top=${child.style.top} w=${child.style.width} h=${child.style.height}${hasTable}${hasImg}`);
+    tables.forEach((tbl, ti) => {
+      const wrapper = tbl.parentElement!;
+      const styleAttr = wrapper.getAttribute('style') || '';
+      console.log(`\nTable ${ti}: wrapper style="${styleAttr}"`);
+
+      const trs = tbl.querySelectorAll('tr');
+      console.log(`  rows: ${trs.length}`);
+
+      // First 3 rows
+      for (let ri = 0; ri < Math.min(3, trs.length); ri++) {
+        const tr = trs[ri] as HTMLElement;
+        const trStyle = tr.getAttribute('style') || '';
+        console.log(`  tr[${ri}] style="${trStyle}"`);
+        const tds = tr.querySelectorAll('td, th');
+        for (let ci = 0; ci < Math.min(4, tds.length); ci++) {
+          const td = tds[ci] as HTMLElement;
+          const tdStyle = td.getAttribute('style') || '';
+          console.log(`    td[${ci}] style="${tdStyle.slice(0, 120)}..." text="${td.textContent?.slice(0, 20)}"`);
+        }
+      }
+    });
+  });
+
+  it('generate slide 4 only PPTX and check tables', async () => {
+    const { JSDOM } = await import('jsdom');
+    setJSDOM(JSDOM as any);
+
+    const pptxPath = resolve(__dirname, 'fixtures/coastal-greenlight.pptx');
+    const pptx = new PPTX();
+    await pptx.load(new Uint8Array(readFileSync(pptxPath)) as any);
+
+    const container = document.createElement('div');
+    const htmlRender = new HtmlRender(container, pptx, {
+      viewPort: { width: 960, height: 0 },
+      mode: 'scroll',
+    });
+    htmlRender.renderSlide(3);
+
+    const slideDef = parseSlideHtml(container.innerHTML);
+    const tableShapes = slideDef.shapes.filter(s => s.type === 'table');
+    console.log(`\nParsed table shapes: ${tableShapes.length}`);
+    for (const t of tableShapes) {
+      console.log(`  offset=(${t.offset.x}, ${t.offset.y}) extend=(${t.extend.cx}, ${t.extend.cy}) rows=${t.tableRows?.length} cols=${t.tableGrid?.gridCol.length}`);
+      // Check first row cells
+      if (t.tableRows?.[0]) {
+        const row0 = t.tableRows[0];
+        console.log(`    row0: height=${row0.props.height} cells=${row0.td.length}`);
+        for (let ci = 0; ci < Math.min(3, row0.td.length); ci++) {
+          const td = row0.td[ci];
+          const text = td.paragraphs?.[0]?.rows?.[0]?.text || '';
+          console.log(`      td[${ci}]: bg=${JSON.stringify(td.props.background)} border=${td.props.border ? 'yes' : 'no'} text="${text.slice(0, 20)}"`);
+        }
       }
     }
-
-    const tables = wrapper.querySelectorAll('table');
-    console.log(`\nTotal <table> elements in slide 4: ${tables.length}`);
-  });
-
-  it('parses slide 4 HTML and checks shapes', async () => {
-    const { JSDOM } = await import('jsdom');
-    setJSDOM(JSDOM as any);
-
-    const pptxPath = resolve(__dirname, 'fixtures/coastal-greenlight.pptx');
-    const pptxBuffer = readFileSync(pptxPath);
-    const pptx = new PPTX();
-    await pptx.load(new Uint8Array(pptxBuffer) as any);
-
-    const container = document.createElement('div');
-    const htmlRender = new HtmlRender(container, pptx, {
-      viewPort: { width: 960, height: 0 },
-      mode: 'scroll',
-    });
-    htmlRender.renderSlide(3);
-
-    const html = container.innerHTML;
-    const slideDef = parseSlideHtml(html);
-
-    console.log(`\nParsed shapes: ${slideDef.shapes.length}`);
-    for (const shape of slideDef.shapes) {
-      console.log(`  type=${shape.type} offset=(${shape.offset.x}, ${shape.offset.y}) extend=(${shape.extend.cx}, ${shape.extend.cy})`,
-        shape.type === 'table' ? `rows=${shape.tableRows?.length} cols=${shape.tableGrid?.gridCol.length}` : '');
-    }
-  });
-
-  it('generates slide 4 PPTX and checks XML', async () => {
-    const { JSDOM } = await import('jsdom');
-    setJSDOM(JSDOM as any);
-
-    const pptxPath = resolve(__dirname, 'fixtures/coastal-greenlight.pptx');
-    const pptxBuffer = readFileSync(pptxPath);
-    const pptx = new PPTX();
-    await pptx.load(new Uint8Array(pptxBuffer) as any);
-
-    const container = document.createElement('div');
-    const htmlRender = new HtmlRender(container, pptx, {
-      viewPort: { width: 960, height: 0 },
-      mode: 'scroll',
-    });
-    htmlRender.renderSlide(3);
 
     const buffer = await createPptx([{ html: container.innerHTML }]);
     const zip = await JSZip.loadAsync(buffer);
     const slideXml = await zip.file('ppt/slides/slide1.xml')!.async('text');
 
-    // Check for table and gridSpan/rowSpan placement
-    console.log('\nHas <a:tbl>:', slideXml.includes('<a:tbl>'));
-    console.log('Has <a:tc>:', slideXml.includes('<a:tc>'));
-
-    // Check if gridSpan is wrongly on tcPr
-    if (slideXml.includes('gridSpan')) {
-      const tcPrMatch = slideXml.match(/<a:tcPr[^>]*gridSpan/);
-      const tcMatch = slideXml.match(/<a:tc[^>]*gridSpan/);
-      console.log('gridSpan on <a:tcPr>:', !!tcPrMatch);
-      console.log('gridSpan on <a:tc>:', !!tcMatch);
+    const graphicFrames = slideXml.match(/<p:graphicFrame>[\s\S]*?<\/p:graphicFrame>/g) || [];
+    console.log(`\ngraphicFrame count: ${graphicFrames.length}`);
+    for (let i = 0; i < graphicFrames.length; i++) {
+      const gf = graphicFrames[i];
+      const trCount = (gf.match(/<a:tr /g) || []).length;
+      const tcCount = (gf.match(/<a:tc[ >]/g) || []).length;
+      const gridColCount = (gf.match(/<a:gridCol /g) || []).length;
+      const offMatch = gf.match(/<a:off x="(\d+)" y="(\d+)"/);
+      const extMatch = gf.match(/<a:ext cx="(\d+)" cy="(\d+)"/);
+      console.log(`  frame[${i}]: rows=${trCount} cells=${tcCount} gridCols=${gridColCount} off=(${offMatch?.[1]},${offMatch?.[2]}) ext=(${extMatch?.[1]},${extMatch?.[2]})`);
     }
 
-    // Write for inspection
     const outDir = resolve(__dirname, '../writer-output');
     mkdirSync(outDir, { recursive: true });
     writeFileSync(resolve(outDir, 'coastal-slide4-only.pptx'), Buffer.from(buffer));
-    console.log('Wrote slide 4 only PPTX');
+    console.log('Wrote coastal-slide4-only.pptx');
   });
 });

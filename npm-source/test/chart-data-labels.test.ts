@@ -28,14 +28,14 @@ describe('Chart Data Labels Parsing', () => {
     expect(retransChart.options.yAxis?.min).toBe(0);
     expect(retransChart.options.yAxis?.max).toBe(17);
     expect(retransChart.options.yAxis?.show).toBe(false);
-    expect(String(retransChart.options.color[2])).toMatch(/201,201,201|C9C9C9/i);
+    expect(retransChart.options.color[2]).toBe('transparent');
 
     const comboChart = charts.find((c: any) => c.extend?.w === 357 && c.extend?.h === 121 && c.offset?.x === 0 && c.offset?.y === 0);
     expect(comboChart).toBeTruthy();
     expect(comboChart.options.series[0].label?.show).toBe(true);
     expect(comboChart.options.series[4].label?.show).toBe(true);
     expect(comboChart.options.series[4].label?.position).toBe('top');
-    expect(comboChart.options.color[4]).toBe('#5B9BD5');
+    expect(comboChart.options.color[4]).toBe('transparent');
     expect(typeof comboChart.options.series[0].label?.formatter).toBe('function');
     expect(comboChart.options.series[0].label.formatter({ value: 6.5275114574287301 })).toBe('6.5');
     expect(comboChart.options.series[4].label.formatter({ value: 20.357711198966602 })).toBe('$20');
